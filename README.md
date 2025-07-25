@@ -1,5 +1,5 @@
-# Ticket
-App with Golang
+# Ticket Booking
+App to Booking tickets for event with Golang
 
 ## Tech Stack
 
@@ -28,7 +28,7 @@ Ejecutar el script aws-config.sh para crear el bucket S3 y la cola SQS necesaria
 
     bash aws-config.sh
 
-4. Levantar la API de Go
+## Levantar la API de Go
 
 Instalar dependencias
 
