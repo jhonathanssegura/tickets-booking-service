@@ -24,7 +24,7 @@ Verificar que LocalStack está corriendo:
 
 ## Crear recursos en LocalStack (SQS y S3)
 
-Ejecutar el script aws-config.sh para crear el bucket S3 y la cola SQS necesaria.
+Ejecutar el script aws-config.sh para crear el bucket S3 y la cola SQS necesaria. De ser ejecutado en Windows, revisar que el WSL esté corriendo ($ wsl -l -v) y ejecutarlo desde la misma terminal del WSL o una comectada a ella para evitar problemas de acceso.
 
     bash aws-config.sh
 
