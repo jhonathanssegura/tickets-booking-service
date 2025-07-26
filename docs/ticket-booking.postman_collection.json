@@ -1,0 +1,34 @@
+{
+  "info": {
+    "_postman_id": "b1e1e1e1-1234-5678-9abc-def012345678",
+    "name": "Ticket Booking API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Colección para probar la API de reserva de tickets."
+  },
+  "item": [
+    {
+      "name": "Reservar Ticket",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"user_email\": \"test@example.com\",\n  \"event_id\": \"evt-1\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:8080/tickets",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8080",
+          "path": ["tickets"]
+        }
+      },
+      "response": []
+    }
+  ]
+} 
