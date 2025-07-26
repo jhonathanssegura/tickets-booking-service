@@ -28,7 +28,7 @@ func main() {
 		QueueURL: queueURL,
 	}
 	s3Client := &storage.S3Client{
-		Client:     s3.NewFromConfig(cfg),
+		Client:     s3.NewFromConfig(cfg, func(o *s3.Options) { o.UsePathStyle = true }),
 		BucketName: bucketName,
 	}
 
