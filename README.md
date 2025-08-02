@@ -1,57 +1,90 @@
-# Ticket Booking
-App to Booking tickets for event with Golang
+# Ticket Booking API
+
+API para gestionar tickets y reservas de eventos, integrando AWS SQS, S3 y DynamoDB mediante LocalStack.
 
 ## Tech Stack
 
 ### LocalStack
-* DynamoDB: Almacenamiento de las reservas.
-* SQS: Procesamiento asíncrono para las confirmaciones o eventos.
-* S3: Almacenamiento de archivos tipo ticket PDF.
-* ECS:
-* RDS:
-* API Gateway:
+* DynamoDB: Almacenamiento de tickets y reservas
+* SQS (Simple Queue Service): Procesamiento asíncrono para confirmaciones
+* S3 (Simple Storage Service): Almacenamiento de archivos tipo ticket PDF y códigos QR
 
 ### Golang
-* Gin
+* Gin: Framework web
+* AWS SDK v2: Integración con servicios AWS
 
 ## Levantar LocalStack con Docker Compose
 
-    docker-compose up -d
+```bash
+docker-compose up -d
+```
 
 Verificar que LocalStack está corriendo:
 
-    docker-compose logs localhost
+```bash
+docker-compose logs localstack
+```
 
-## Crear recursos en LocalStack (SQS y S3)
+## Crear recursos en LocalStack
 
-Ejecutar el script aws-config.sh para crear el bucket S3 y la cola SQS necesaria. De ser ejecutado en Windows, revisar que el WSL esté corriendo ($ wsl -l -v) y ejecutarlo desde la misma terminal del WSL o una comectada a ella para evitar problemas de acceso.
+Ejecutar el script aws-config.sh para crear el bucket S3, la cola SQS y la tabla DynamoDB necesaria:
 
-    bash aws-config.sh
+```bash
+bash aws-config.sh
+```
 
 ## Levantar la API de Go
 
-Instalar dependencias
+Instalar dependencias:
 
-    go mod tidy
+```bash
+go mod tidy
+```
 
-Ejecutar la API
+Cargar la data de prueba
+```bash
+go run scripts/seed-data.go
+```
 
-    go run cmd/main.go
+Ejecutar la API:
 
-## Probar el Flujo
+```bash
+go run cmd/main.go
+```
 
-Se puede probar el endpoint con *curl* utilizando la instrucción
+## Verificar en LocalStack
 
-    curl -X POST http://localhost:8080/tickets \
-        -H "Content-Type: application/json" \
-        -d '{"user_email":"test@example.com","event_id":"evt-1"}'
+### Ver mensajes en SQS:
+```bash
+aws --endpoint-url=http://localhost:4566 sqs receive-message --queue-url http://localhost:4566/000000000000/ticket-queue
+```
 
-Verificar en LocalStack
+### Ver archivos en S3:
+```bash
+aws --endpoint-url=http://localhost:4566 s3 ls s3://ticket-bucket/tickets/
+```
 
-Ver mensajes en SQS:
+### Ver tickets en DynamoDB:
+```bash
+aws --endpoint-url=http://localhost:4566 dynamodb scan --table-name tickets
+```
 
-    aws --endpoint-url=http://localhost:4566 sqs receive-message --queue-url http://localhost:4566/000000000000/ticket-queue
+## Documentación
 
-Ver archvios en S3:
+- **Swagger**: Disponible en `docs/swagger.yaml`
+- **Postman Collection**: Disponible en `docs/ticket-booking.postman_collection.json`
 
-    aws --endpoint-url=http://localhost:4566 s3 ls s3://ticket-bucket/tickets/
+## Estructura del Proyecto
+
+```
+ticket-booking/
+├── cmd/
+│   └── main.go              # Punto de entrada de la aplicación
+├── internal/
+│   ├── awsconfig/           # Configuración de AWS
+│   ├── db/                  # Cliente de DynamoDB
+│   ├── handler/             # Handlers HTTP
+│   ├── model/               # Modelos de datos
+│   ├── queue/               # Cliente de SQS
+│   └── storage/             # Cliente de S3
+```
