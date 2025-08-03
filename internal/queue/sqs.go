@@ -9,8 +9,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/sqs"
 )
 
-// TicketReservationMessage representa el mensaje que se enviará a la cola SQS
-// para procesar una reserva de ticket.
 type TicketReservationMessage struct {
 	ReservationID string `json:"reservation_id"`
 	UserID        string `json:"user_id"`
@@ -18,13 +16,11 @@ type TicketReservationMessage struct {
 	NumTickets    int    `json:"num_tickets"`
 }
 
-// SQSClient envuelve el cliente de AWS SQS y la URL de la cola.
 type SQSClient struct {
 	Client   *sqs.Client
 	QueueURL string
 }
 
-// SendReservationMessage envía un mensaje de reserva de ticket a la cola SQS.
 func (s *SQSClient) SendReservationMessage(ctx context.Context, msg TicketReservationMessage) error {
 	body, err := json.Marshal(msg)
 	if err != nil {
@@ -41,7 +37,6 @@ func (s *SQSClient) SendReservationMessage(ctx context.Context, msg TicketReserv
 	return nil
 }
 
-// ReceiveReservationMessages recibe mensajes de reserva de ticket desde la cola SQS.
 func (s *SQSClient) ReceiveReservationMessages(ctx context.Context, maxMessages int32) ([]TicketReservationMessage, error) {
 	resp, err := s.Client.ReceiveMessage(ctx, &sqs.ReceiveMessageInput{
 		QueueUrl:            aws.String(s.QueueURL),
