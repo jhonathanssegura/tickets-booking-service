@@ -2,7 +2,6 @@ package handler
 
 import (
 	"bytes"
-	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -11,107 +10,108 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// Definir interfaces para mocking
-// Estas deben coincidir con los métodos usados en ReservationHandler
-
-type SQSService interface {
-	SendReservationMessage(ctx interface{}, msg interface{}) error
-}
-
-type S3Service interface {
-	UploadTicketFile(ctx interface{}, key interface{}, body interface{}) error
-}
-
-// Redefinir ReservationHandler para usar interfaces en los tests
-// (esto es solo para el test, el handler real usa los structs concretos)
-type testReservationHandler struct {
-	SQS SQSService
-	S3  S3Service
-}
-
-func (h *testReservationHandler) ReserveTicket(c *gin.Context) {
-	// Copiar la lógica del handler real, pero usando las interfaces
-	var ticket struct {
-		UserEmail string `json:"user_email"`
-		EventID   string `json:"event_id"`
-	}
-	if err := c.BindJSON(&ticket); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	if err := h.SQS.SendReservationMessage(nil, nil); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error enviando mensaje a SQS"})
-		return
-	}
-	if err := h.S3.UploadTicketFile(nil, nil, nil); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error subiendo ticket a S3"})
-		return
-	}
-	c.JSON(http.StatusOK, gin.H{"message": "Ticket reservado con éxito"})
-}
-
-type mockSQS struct{ sendErr error }
-
-func (m *mockSQS) SendReservationMessage(_, _ interface{}) error { return m.sendErr }
-
-type mockS3 struct{ uploadErr error }
-
-func (m *mockS3) UploadTicketFile(_, _, _ interface{}) error { return m.uploadErr }
-
-func TestReserveTicket_Success(t *testing.T) {
+// Tests for ReservationHandler
+func TestReserveTicket_InvalidEventID(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	h := &testReservationHandler{
-		SQS: &mockSQS{},
-		S3:  &mockS3{},
-	}
 	r := gin.Default()
-	r.POST("/tickets", h.ReserveTicket)
 
-	body := `{"user_email":"test@example.com","event_id":"evt-1"}`
-	req := httptest.NewRequest(http.MethodPost, "/tickets", bytes.NewBufferString(body))
+	// Create a minimal handler for testing validation
+	handler := &ReservationHandler{}
+	r.POST("/reservations", handler.ReserveTicket)
+
+	body := `{
+		"event_id": "invalid-uuid",
+		"user_email": "test@example.com",
+		"name": "Test User"
+	}`
+	req := httptest.NewRequest(http.MethodPost, "/reservations", bytes.NewBufferString(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), "Ticket reservado con éxito")
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Contains(t, w.Body.String(), "Formato de event_id inválido")
 }
 
-func TestReserveTicket_SQSError(t *testing.T) {
+func TestReserveTicket_MissingEmail(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	h := &testReservationHandler{
-		SQS: &mockSQS{sendErr: errors.New("sqs fail")},
-		S3:  &mockS3{},
-	}
 	r := gin.Default()
-	r.POST("/tickets", h.ReserveTicket)
 
-	body := `{"user_email":"test@example.com","event_id":"evt-1"}`
-	req := httptest.NewRequest(http.MethodPost, "/tickets", bytes.NewBufferString(body))
+	handler := &ReservationHandler{}
+	r.POST("/reservations", handler.ReserveTicket)
+
+	body := `{
+		"event_id": "550e8400-e29b-41d4-a716-446655440003",
+		"name": "Test User"
+	}`
+	req := httptest.NewRequest(http.MethodPost, "/reservations", bytes.NewBufferString(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
-	assert.Equal(t, http.StatusInternalServerError, w.Code)
-	assert.Contains(t, w.Body.String(), "Error enviando mensaje a SQS")
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Contains(t, w.Body.String(), "Email requerido")
 }
 
-func TestReserveTicket_S3Error(t *testing.T) {
+func TestReserveTicket_InvalidEmail(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	h := &testReservationHandler{
-		SQS: &mockSQS{},
-		S3:  &mockS3{uploadErr: errors.New("s3 fail")},
-	}
 	r := gin.Default()
-	r.POST("/tickets", h.ReserveTicket)
 
-	body := `{"user_email":"test@example.com","event_id":"evt-1"}`
-	req := httptest.NewRequest(http.MethodPost, "/tickets", bytes.NewBufferString(body))
+	handler := &ReservationHandler{}
+	r.POST("/reservations", handler.ReserveTicket)
+
+	body := `{
+		"event_id": "550e8400-e29b-41d4-a716-446655440003",
+		"user_email": "invalid-email",
+		"name": "Test User"
+	}`
+	req := httptest.NewRequest(http.MethodPost, "/reservations", bytes.NewBufferString(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
-	assert.Equal(t, http.StatusInternalServerError, w.Code)
-	assert.Contains(t, w.Body.String(), "Error subiendo ticket a S3")
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Contains(t, w.Body.String(), "Formato de email inválido")
+}
+
+func TestReserveTicket_InvalidJSON(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.Default()
+
+	handler := &ReservationHandler{}
+	r.POST("/reservations", handler.ReserveTicket)
+
+	req := httptest.NewRequest(http.MethodPost, "/reservations", bytes.NewBufferString(`invalid json`))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Contains(t, w.Body.String(), "Datos de reserva inválidos")
+}
+
+func TestReserveTicket_ValidRequest(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.Default()
+
+	handler := &ReservationHandler{}
+	r.POST("/reservations", handler.ReserveTicket)
+
+	body := `{
+		"event_id": "550e8400-e29b-41d4-a716-446655440003",
+		"user_email": "test@example.com",
+		"name": "Test User"
+	}`
+	req := httptest.NewRequest(http.MethodPost, "/reservations", bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	// This will fail because we don't have the dependencies set up,
+	// but it should pass validation and fail at a later stage
+	assert.NotEqual(t, http.StatusBadRequest, w.Code)
+	// The response should not be a validation error
+	assert.NotContains(t, w.Body.String(), "Formato de event_id inválido")
+	assert.NotContains(t, w.Body.String(), "Email requerido")
+	assert.NotContains(t, w.Body.String(), "Formato de email inválido")
 }
